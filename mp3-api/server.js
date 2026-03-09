@@ -49,14 +49,25 @@ app.get('/api/song/stream', async (req, res) => {
   try {
     const { id, quality = '128' } = req.query;
     if (!id) return res.status(400).json({ error: 'Missing id' });
+
     const response = await ZingMp3.getSong(String(id));
     const url = response?.data?.[String(quality)];
+
     if (!url || typeof url !== 'string') {
       return res.status(404).json({ error: `Stream URL not found for quality ${quality}` });
     }
-    res.redirect(url);
+
+    const https = require('https');
+
+    https.get(url, (stream) => {
+      res.setHeader('Content-Type', 'audio/mpeg');
+      stream.pipe(res);
+    }).on('error', (err) => {
+      res.status(500).json({ error: err.message });
+    });
+
   } catch (e) {
-    res.status(e?.response?.status || 500).json({ error: e?.message || 'Internal Error' });
+    res.status(500).json({ error: e?.message || 'Internal Error' });
   }
 });
 
